@@ -3,8 +3,7 @@ cmake_minimum_required(VERSION 3.10.2)
 
 project("calculate_color_change")
 
-
-set(opencvsourcedir path_to_opencv)
+set(opencvsourcedir /home/orbianta/Desktop/Texts/AI/OpenCV-android-sdk/sdk/native)
 
 include_directories(${opencvsourcedir}/jni/include)
 add_library(libopencv SHARED IMPORTED)

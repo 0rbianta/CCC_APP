@@ -1,0 +1,2 @@
+rootProject.name = "calculate_color_change"
+include ':app'

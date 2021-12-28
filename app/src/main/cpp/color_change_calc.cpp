@@ -198,7 +198,7 @@ int *get_sys_temperatures()
     for (int j = 0; j < 20; j++)
         vec[j] = -1000;
 
-    // Create an infinite loop
+    // Create an loop
     while (i < 20)
     {
         // Define temperature files path buffer

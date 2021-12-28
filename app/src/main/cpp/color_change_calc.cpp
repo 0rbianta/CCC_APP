@@ -1,12 +1,12 @@
 // C++
-#include <jni.h>
 #include <string>
 #include <opencv2/opencv.hpp>
 #include <vector>
 
 // C
-#include <time.h>
+#include <jni.h>
 #include <unistd.h>
+
 
 // Use required namespaces
 using namespace std;
@@ -23,13 +23,21 @@ using namespace cv;
 #define log_save_path "/sdcard"
 // Define buffer size of log_file_name
 #define fname_buf_size 250
+// Define Linux's temperatures stored path
+#define temp_sensors_path "/sys/class/thermal/thermal_zone%d/temp"
+// Define temperature check delay
+#define temperature_check_delay_ms 2000
 
+#define kill_temperature_threshold_min 5000
+
+#define kill_temperature_threshold_max 90000
 
 // Define last5 vector
 vector<int> last5;
 // Define log file
 FILE *log_file = NULL;
 
+pthread_t temperature_th;
 
 
 extern "C"
@@ -64,6 +72,7 @@ Java_dev_orbianta_calculate_1color_1change_MainActivity_proc_1color(JNIEnv *env,
         last5.erase(last5.begin());
     }
 
+    // Create pixel buffer
     int fbuf = 0;
     // Loop through columns and rows of the frame
     for (unsigned int x = 0; x < frame.rows; x++)
@@ -104,7 +113,7 @@ Java_dev_orbianta_calculate_1color_1change_MainActivity_gen_1new_1log(JNIEnv *en
     tm *t = localtime(&tms);
 
     // Allocate space for file name string
-    char *fpath = (char *)malloc(sizeof(char) * fname_buf_size);
+    char *fpath = (char *)malloc(sizeof(char) * (fname_buf_size + 1));
 
     // Create the log file path with its name
     snprintf(fpath, fname_buf_size, "%s/CCC_LOG_%d_%d_%d_%d_%d.log", log_save_path, t->tm_mday,
@@ -174,3 +183,95 @@ Java_dev_orbianta_calculate_1color_1change_MainActivity_close_1log(JNIEnv *env, 
     if (log_file != NULL)
         fclose(log_file);
 }
+
+int *get_sys_temperatures()
+{
+
+    // Create a loop cursor
+    int i = 0;
+
+    // Create a array for storing temperature values
+    int vec[20];
+
+    // Clean up the random values in the array
+    for (int j = 0; j <= 20; j++)
+        vec[j] = -1000;
+
+    // Create an infinite loop
+    for(;;)
+    {
+
+        char tpath[251];
+        snprintf(tpath, 250, temp_sensors_path, i);
+
+        FILE *tf = fopen(tpath, "r");
+        if (tf == NULL || vec[20] != -1000)
+            break;
+        else
+        {
+
+            char t[51];
+            fgets(t, 50, tf);
+            int ti = atoi(t);
+            vec[i] = ti;
+
+            fclose(tf);
+        }
+
+        // Increase i
+        i++;
+    }
+
+    return vec;
+}
+
+void *temperature_thread_body(void *argv)
+{
+    for (;;)
+    {
+        // Sleep until next temperature check
+        sleep(temperature_check_delay_ms / 1000);
+
+        // Get up-to-date temperature values
+        int *temps = get_sys_temperatures();
+        // Loop through each index of temperatures array
+        for (int i = 0; i < sizeof(temps) / sizeof(int); i++)
+        {
+            // Get temperature from array
+            int t = temps[i];
+            // Check temperature result
+            if ((t > kill_temperature_threshold_max || kill_temperature_threshold_min < t) && t != -1000)
+            {
+                // Write error message to stderr
+                fprintf(stderr, "Overheating detected by CCC temperature protection. Program gonna kill itself for safety of device with pid %d", getpid());
+                // Kill the process
+                kill(getpid(), SIGKILL);
+            }
+        }
+
+    }
+}
+
+void start_temperature_check_thread()
+{
+    int res = pthread_create(&temperature_th, NULL, temperature_thread_body, NULL);
+
+    if (res != 0)
+    {
+        // Write error message to stderr
+        fprintf(stderr, "Failed to create temperature thread. Sending SIGKILL to the program with pid %d", getpid());
+        // Kill the process
+        kill(getpid(), SIGKILL);
+    }
+
+}
+
+
+jint JNI_OnLoad(JavaVM *jvm, void *reserved)
+{
+    // Start periodic temperature check thread
+    start_temperature_check_thread();
+
+    return JNI_VERSION_1_6;
+}
+

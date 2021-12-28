@@ -12,3 +12,8 @@ Sorry for dumb UI but I really tried to develop an application very fast so I di
 
 -> Develped by 0rbianta</br>
 -> Licensed under Apache 2.0
+
+Thanks to
+* <b>NullCode</b> for giving information about <tt>/sys/class/thermal/thermal_zone%d/temp</tt>
+
+

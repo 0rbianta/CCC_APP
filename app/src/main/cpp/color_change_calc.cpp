@@ -23,20 +23,20 @@ using namespace cv;
 #define log_save_path "/sdcard"
 // Define buffer size of log_file_name
 #define fname_buf_size 250
-// Define Linux's temperatures stored path
+// Define Linux's temperatures(cpu - Thanks to NullCode) stored path
 #define temp_sensors_path "/sys/class/thermal/thermal_zone%d/temp"
 // Define temperature check delay
 #define temperature_check_delay_ms 2000
-
+// Define temperature min
 #define kill_temperature_threshold_min 5000
-
+// Define temperature max
 #define kill_temperature_threshold_max 90000
 
-// Define last5 vector
+// Initialize last5 vector
 vector<int> last5;
 // Define log file
 FILE *log_file = NULL;
-
+// Initialize temperature check thread id
 pthread_t temperature_th;
 
 
@@ -193,26 +193,34 @@ int *get_sys_temperatures()
     // Create a array for storing temperature values
     int vec[20];
 
+
     // Clean up the random values in the array
-    for (int j = 0; j <= 20; j++)
+    for (int j = 0; j < 20; j++)
         vec[j] = -1000;
 
     // Create an infinite loop
-    for(;;)
+    while (i < 20)
     {
-
+        // Define temperature files path buffer
         char tpath[251];
+        // Assign the path
         snprintf(tpath, 250, temp_sensors_path, i);
 
+        // Read the temperature file
         FILE *tf = fopen(tpath, "r");
-        if (tf == NULL || vec[20] != -1000)
+        // Check if file opening failed or vec size have reached the limit
+        if (tf == NULL || vec[19] != -1000)
+            // Stop loop
             break;
         else
         {
-
+            // Temperature string buffer
             char t[51];
+            // Assign temperature string buffer
             fgets(t, 50, tf);
+            // Convert string to int
             int ti = atoi(t);
+            // Assign the value to vec with i cursor
             vec[i] = ti;
 
             fclose(tf);
@@ -227,6 +235,7 @@ int *get_sys_temperatures()
 
 void *temperature_thread_body(void *argv)
 {
+    // Make thread run in a infinite loop
     for (;;)
     {
         // Sleep until next temperature check
@@ -240,7 +249,7 @@ void *temperature_thread_body(void *argv)
             // Get temperature from array
             int t = temps[i];
             // Check temperature result
-            if ((t > kill_temperature_threshold_max || kill_temperature_threshold_min < t) && t != -1000)
+            if ((t > kill_temperature_threshold_max || kill_temperature_threshold_min > t) && t != -1000)
             {
                 // Write error message to stderr
                 fprintf(stderr, "Overheating detected by CCC temperature protection. Program gonna kill itself for safety of device with pid %d", getpid());
@@ -249,13 +258,16 @@ void *temperature_thread_body(void *argv)
             }
         }
 
+
     }
 }
 
 void start_temperature_check_thread()
 {
+    // Start temperature check thread
     int res = pthread_create(&temperature_th, NULL, temperature_thread_body, NULL);
 
+    // Kill the program if thread failed to start
     if (res != 0)
     {
         // Write error message to stderr
@@ -266,7 +278,7 @@ void start_temperature_check_thread()
 
 }
 
-
+// Called when native side loaded
 jint JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
     // Start periodic temperature check thread

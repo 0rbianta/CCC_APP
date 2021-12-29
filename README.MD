@@ -14,6 +14,6 @@ Sorry for dumb UI but I really tried to develop an application very fast so I di
 -> Licensed under Apache 2.0
 
 Thanks to
-* NullCode for giving information about <tt>/sys/class/thermal/thermal_zone%d/temp</tt>
+* <a href="https://github.com/NullCode1337">NullCode</a> for giving information about <tt>/sys/class/thermal/thermal_zone%d/temp</tt>
 
 
